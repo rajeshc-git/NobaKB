@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaKB | Intelligent Workspace</title>
+  
+  <!-- Tailwind & Plugins -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- Tailwind Config -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            background: '#09090b',
+            primary: '#3b82f6',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out forwards',
+            'scale-in': 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            scaleIn: { '0%': { transform: 'scale(0.9)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(120, 120, 120, 0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(120, 120, 120, 0.4); }
+
+    /* Markdown Styles */
+    .prose p { margin-bottom: 0.8rem; line-height: 1.6; color: inherit; }
+    .prose pre { background: #111; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; border: 1px solid #333; font-family: 'JetBrains Mono', monospace; margin-top: 0.5rem; margin-bottom: 0.5rem; }
+    .prose code { background: rgba(255,255,255,0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.85em; font-family: 'JetBrains Mono', monospace; }
+    .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+    .prose ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+    .prose a { color: #60a5fa; text-decoration: none; border-bottom: 1px dashed #60a5fa; transition: all 0.2s; }
+    .prose a:hover { color: #93c5fd; border-bottom-style: solid; }
+    .prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    .prose th { text-align: left; padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; color: #fff; }
+    .prose td { padding: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+
+    /* Glass Effects */
+    .glass {
+      background: rgba(24, 24, 27, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    /* PURE WHITE Light Mode Glass */
+    .glass-light {
+      background: rgba(255, 255, 255, 0.9); /* High opacity white */
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+    }
+
+    .typing-dot { width: 6px; height: 6px; background: currentColor; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    
+    /* Smooth Transitions for Window Ops */
+    #appContainer { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+   .export-mode * {
+     backdrop-filter: none !important;
+     -webkit-backdrop-filter: none !important;
+     background: white !important;
+     opacity: 1 !important;
+     color: black !important;
+   }
+
+  </style>
+</head>
+
+<body class="bg-background text-zinc-300 h-screen w-screen overflow-hidden flex flex-col items-center justify-center font-sans transition-colors duration-300" data-theme="dark">
+
+  <!-- Ambient Background (Dark Mode Only) -->
+  <div id="ambientGlow" class="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(59,130,246,0.15)_0%,rgba(0,0,0,0)_70%)]"></div>
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIiBmaWxsLW9wYWNpdHk9IjAuMDMiLz4KPC9zdmc+')] opacity-20"></div>
+  </div>
+
+  <!-- "Reopen" Screen (For Close Function) -->
+  <div id="reopenScreen" class="hidden absolute inset-0 z-50 flex-col items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+    <button onclick="reopenApp()" class="flex flex-col items-center gap-4 group cursor-pointer">
+       <div class="w-24 h-24 bg-white rounded-full shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+         <i class="fas fa-power-off text-4xl text-blue-600"></i>
+       </div>
+       <span class="text-white font-medium tracking-wide text-sm bg-black/50 px-4 py-1 rounded-full">System Offline • Click to Reboot</span>
+    </button>
+  </div>
+
+  <!-- Dock Icon (For Minimize Function) -->
+  <div id="dockIcon" onclick="restoreApp()" class="fixed bottom-6 z-50 hidden cursor-pointer group hover:-translate-y-2 transition-all duration-300">
+    <div class="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl shadow-xl border-2 border-white/20 flex items-center justify-center">
+      <i class="fas fa-cube text-white text-2xl"></i>
+    </div>
+  </div>
+
+  <!-- Main Application Window -->
+  <div id="appContainer" class="relative w-full h-full md:h-[90vh] md:w-[95vw] md:max-w-6xl md:rounded-3xl glass shadow-2xl flex flex-col md:flex-row overflow-hidden border-zinc-800">
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-full md:w-64 bg-zinc-900/50 border-b md:border-b-0 md:border-r border-white/5 flex flex-col transition-all duration-300 z-20 backdrop-blur-md">
+      <!-- Header -->
+      <div class="h-16 flex items-center px-6 border-b border-white/5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 mr-3">
+          <i class="fas fa-cube text-white text-xs"></i>
+        </div>
+        <span id="logoText" class="font-semibold text-white tracking-tight">NovaKB</span>
+      </div>
+
+      <!-- Nav Items -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-2">
+        <div class="text-xs font-medium text-zinc-500 uppercase tracking-wider px-3 mb-2">Actions</div>
+        <button onclick="document.getElementById('upload').click()" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-3">
+          <i class="fas fa-cloud-upload-alt w-4 text-center"></i> Upload Docs
+        </button>
+        <button onclick="clearKB()" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3">
+          <i class="fas fa-trash-alt w-4 text-center"></i> Clear Knowledge
+        </button>
+        <button onclick="exportChat()" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-3">
+          <i class="fas fa-download w-4 text-center"></i> Export Chat
+        </button>
+        
+        <div class="mt-6 text-xs font-medium text-zinc-500 uppercase tracking-wider px-3 mb-2">System</div>
+        <button onclick="toggleTheme()" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-3">
+          <i id="themeIcon" class="fas fa-moon w-4 text-center"></i> <span id="themeText">Dark Mode</span>
+        </button>
+        <button onclick="clearChat()" class="nav-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-3">
+          <i class="fas fa-eraser w-4 text-center"></i> Clear History
+        </button>
+      </div>
+
+      <!-- Footer/Status -->
+      <div class="p-4 border-t border-white/5 bg-zinc-900/30 shrink-0" id="footer">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            <div class="w-2 h-2 rounded-full bg-green-500 absolute top-0 left-0 animate-ping opacity-75"></div>
+          </div>
+          <div class="flex flex-col">
+             <span class="text-xs text-zinc-400">System Online</span>
+             <span class="text-[10px] text-zinc-600" id="sessionTime">0m 0s</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 flex flex-col relative transition-colors duration-300">
+      <!-- Top Bar -->
+      <div class="h-14 border-b border-white/5 flex items-center justify-between px-6 bg-white/5 backdrop-blur-md z-10 shrink-0">
+        <div class="flex items-center gap-3">
+          <button class="md:hidden text-zinc-400 hover:text-white" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h2 id="headerTitle" class="text-sm font-medium text-zinc-200">New Conversation</h2>
+        </div>
+        
+        <!-- FUNCTIONAL WINDOW CONTROLS -->
+        <div class="flex gap-2 group">
+            <!-- Close Button -->
+            <button onclick="closeApp()" class="w-3.5 h-3.5 rounded-full bg-[#ff5f57] border border-[#e0443e] hover:bg-[#ff5f57]/80 transition-colors flex items-center justify-center group/btn" title="Close">
+                <i class="fas fa-times text-[8px] text-black/60 opacity-0 group-hover/btn:opacity-100"></i>
+            </button>
+            <!-- Minimize Button -->
+            <button onclick="minimizeApp()" class="w-3.5 h-3.5 rounded-full bg-[#febc2e] border border-[#d89e24] hover:bg-[#febc2e]/80 transition-colors flex items-center justify-center group/btn" title="Minimize">
+                <i class="fas fa-minus text-[8px] text-black/60 opacity-0 group-hover/btn:opacity-100"></i>
+            </button>
+            <!-- Maximize Button -->
+            <button onclick="toggleMaximize()" class="w-3.5 h-3.5 rounded-full bg-[#28c840] border border-[#1aab29] hover:bg-[#28c840]/80 transition-colors flex items-center justify-center group/btn" title="Maximize">
+                <i class="fas fa-expand text-[8px] text-black/60 opacity-0 group-hover/btn:opacity-100"></i>
+            </button>
+        </div>
+      </div>
+
+      <!-- Upload Progress -->
+      <div id="uploadProgressWrapper" class="absolute top-14 left-0 w-full h-1 bg-transparent hidden z-20">
+        <div id="uploadProgressBar" class="h-full bg-blue-500 transition-all duration-300 w-0 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+      </div>
+
+      <!-- Messages Area -->
+      <div id="chat" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth">
+        <!-- Empty State -->
+        <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center select-none animate-fade-in pb-12">
+          <div class="w-20 h-20 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl border border-white/10 flex items-center justify-center mb-6 shadow-2xl" id="emptyIcon">
+            <i class="fas fa-bolt text-3xl text-blue-500/80"></i>
+          </div>
+          <h1 id="emptyTitle" class="text-2xl md:text-3xl font-bold text-white mb-2 tracking-tight">How can I help you?</h1>
+          <p id="emptySub" class="text-zinc-500 max-w-md text-sm">Upload documents or start chatting to explore NovaKB.</p>
+          
+          <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">
+             <button onclick="sendQuickMessage('Summarize the last uploaded document')" class="quick-btn p-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-blue-500/30 hover:shadow-lg transition-all text-sm text-left group">
+                <span class="block text-zinc-300 font-medium group-hover:text-blue-400 quick-btn-title">Summarize Docs</span>
+                <span class="text-xs text-zinc-600 group-hover:text-zinc-500 quick-btn-desc">Analyze attached files</span>
+             </button>
+             <button onclick="sendQuickMessage('Write a Python script for data analysis')" class="quick-btn p-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-blue-500/30 hover:shadow-lg transition-all text-sm text-left group">
+                <span class="block text-zinc-300 font-medium group-hover:text-blue-400 quick-btn-title">Code Assistant</span>
+                <span class="text-xs text-zinc-600 group-hover:text-zinc-500 quick-btn-desc">Generate clean code</span>
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Toast Area -->
+      <div id="toastArea" class="absolute bottom-24 right-6 flex flex-col gap-2 pointer-events-none z-50"></div>
+
+      <!-- Input Area -->
+      <div class="p-4 md:p-6 z-20" id="inputWrapper">
+        <div class="relative max-w-4xl mx-auto">
+          <div id="inputContainer" class="glass rounded-2xl p-1.5 flex items-end gap-2 shadow-2xl ring-1 ring-white/10 focus-within:ring-blue-500/50 transition-all duration-300">
+            <!-- File Attach Button -->
+            <button onclick="attachFile()" class="p-3 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors h-[50px] w-[50px] flex items-center justify-center shrink-0 input-btn">
+              <i class="fas fa-paperclip"></i>
+            </button>
+
+            <!-- Text Area -->
+            <textarea 
+              id="message" 
+              rows="1" 
+              placeholder="Ask anything..." 
+              class="w-full bg-transparent border-none text-zinc-100 placeholder-zinc-500 focus:ring-0 resize-none py-3.5 max-h-[150px] text-base leading-relaxed"
+              oninput="autoResize(this)"
+              onkeydown="handleInputKeydown(event)"
+            ></textarea>
+
+            <!-- Send Button -->
+            <button 
+              id="send" 
+              onclick="sendMessage()" 
+              class="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all h-[50px] w-[50px] flex items-center justify-center shrink-0 shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              <i class="fas fa-arrow-up"></i>
+            </button>
+          </div>
+          <div class="text-center mt-3">
+             <p class="text-[10px] text-zinc-600">AI can make mistakes. Verify important information.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Hidden Inputs -->
+  <input type="file" id="upload" multiple accept=".pdf,.doc,.docx,.txt,.md,.xlsx" class="hidden" onchange="uploadFiles()" />
+  <input type="file" id="fileAttach" accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png" class="hidden" onchange="handleFileAttach(event)" />
+
+  <script>
+    const API_URL = 'http://192.168.7.90:8000/chat';
+    const chatContainer = document.getElementById('chat');
+    const input = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    const appContainer = document.getElementById('appContainer');
+    
+    let sessionStartTime = Date.now();
+    let isSending = false;
+    let isMaximized = false;
+
+    // --- Window Control Functions (New Logic) ---
+
+    function toggleMaximize() {
+      isMaximized = !isMaximized;
+      if (isMaximized) {
+        // Remove constrained sizing
+        appContainer.classList.remove('md:h-[90vh]', 'md:w-[95vw]', 'md:max-w-6xl', 'md:rounded-3xl', 'border-zinc-800');
+        // Add fullscreen sizing
+        appContainer.classList.add('w-screen', 'h-screen', 'rounded-none', 'border-none');
+      } else {
+        // Restore constrained sizing
+        appContainer.classList.add('md:h-[90vh]', 'md:w-[95vw]', 'md:max-w-6xl', 'md:rounded-3xl', 'border-zinc-800');
+        appContainer.classList.remove('w-screen', 'h-screen', 'rounded-none', 'border-none');
+      }
+    }
+
+    function minimizeApp() {
+      // Scale down and fade out
+      appContainer.style.transform = 'scale(0.5) translateY(500px)';
+      appContainer.style.opacity = '0';
+      appContainer.style.pointerEvents = 'none'; // prevent clicks while hidden
+      
+      // Show dock icon
+      setTimeout(() => {
+        document.getElementById('dockIcon').classList.remove('hidden');
+        document.getElementById('dockIcon').classList.add('flex', 'animate-scale-in');
+      }, 300);
+    }
+
+    function restoreApp() {
+      // Hide dock icon
+      document.getElementById('dockIcon').classList.add('hidden');
+      document.getElementById('dockIcon').classList.remove('flex');
+
+      // Restore Window
+      appContainer.style.transform = 'scale(1) translateY(0)';
+      appContainer.style.opacity = '1';
+      appContainer.style.pointerEvents = 'all';
+    }
+
+    function closeApp() {
+      // Fade out window
+      appContainer.style.opacity = '0';
+      appContainer.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        appContainer.classList.add('hidden');
+        // Show Reopen Screen
+        const reopen = document.getElementById('reopenScreen');
+        reopen.classList.remove('hidden');
+        reopen.classList.add('flex');
+        // Hide background glow
+        document.getElementById('ambientGlow').style.opacity = '0';
+      }, 300);
+    }
+
+    function reopenApp() {
+      // Hide Reopen Screen
+      const reopen = document.getElementById('reopenScreen');
+      reopen.classList.add('hidden');
+      reopen.classList.remove('flex');
+      // Show Window
+      appContainer.classList.remove('hidden');
+      setTimeout(() => {
+        appContainer.style.opacity = '1';
+        appContainer.style.transform = 'scale(1)';
+        document.getElementById('ambientGlow').style.opacity = '1';
+      }, 10);
+    }
+
+    function toggleSidebar() {
+       const sb = document.getElementById('sidebar');
+       sb.classList.toggle('-translate-x-full');
+       sb.classList.toggle('absolute');
+       sb.classList.toggle('h-full');
+    }
+
+
+    // --- Theme Logic (Updated for Pure White) ---
+
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      
+      // Elements to toggle
+      const container = document.getElementById('appContainer');
+      const sidebar = document.getElementById('sidebar');
+      const icon = document.getElementById('themeIcon');
+      const text = document.getElementById('themeText');
+      const inputContainer = document.getElementById('inputContainer');
+      const msgInput = document.getElementById('message');
+      const logoText = document.getElementById('logoText');
+      const headerTitle = document.getElementById('headerTitle');
+      const emptyIcon = document.getElementById('emptyIcon');
+      const emptyTitle = document.getElementById('emptyTitle');
+      const footer = document.getElementById('footer');
+      const darkBubbleBg = document.querySelectorAll('.dark-bubble-bg');
+      const lightBubbleBg = document.querySelectorAll('.light-bubble-bg');
+      if(newTheme === 'light') {
+        darkBubbleBg.forEach(bubble => bubble.classList.replace('text-zinc-100', 'text-zinc-900'));
+        darkBubbleBg.forEach(bubble => bubble.classList.replace('dark-bubble-bg', 'light-bubble-bg'));
+         // Switch to Light Mode (Pure White)
+         body.classList.remove('bg-background', 'text-zinc-300');
+         body.classList.add('bg-white', 'text-zinc-800');
+         document.body.classList.add('light-mode-active');
+         
+         // Hide dark ambient glow
+         document.getElementById('ambientGlow').classList.add('hidden');
+
+         // Container: Glass Light
+         container.classList.remove('glass', 'border-zinc-800');
+         container.classList.add('glass-light', 'border-gray-200');
+         
+         // Sidebar: White/Light Gray
+         sidebar.classList.remove('bg-zinc-900/50', 'border-white/5');
+         sidebar.classList.add('bg-gray-50/80', 'border-gray-200');
+         
+         // Text Colors
+         icon.className = 'fas fa-sun w-4 text-center';
+         text.textContent = "Light Mode";
+         logoText.classList.replace('text-white', 'text-blue-600');
+         headerTitle.classList.replace('text-zinc-200', 'text-zinc-800');
+         
+         // Nav Buttons
+         document.querySelectorAll('.nav-btn').forEach(btn => {
+           btn.classList.replace('text-zinc-400', 'text-zinc-600');
+           btn.classList.replace('hover:text-white', 'hover:text-black');
+           btn.classList.replace('hover:bg-white/5', 'hover:bg-black/5');
+         });
+
+         // Empty State
+         emptyIcon.classList.remove('bg-gradient-to-br', 'from-zinc-800', 'to-zinc-900', 'border-white/10');
+         emptyIcon.classList.add('bg-blue-50', 'border-blue-100');
+         emptyTitle.classList.replace('text-white', 'text-zinc-900');
+
+         // footer
+         footer.classList.replace('border-white/5', 'border-gray-200');
+         footer.classList.replace('bg-zinc-900/30', 'bg-white/5');
+         
+         // Quick Actions
+         document.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.classList.remove('bg-white/5', 'border-white/5', 'hover:bg-white/10');
+            btn.classList.add('bg-white', 'border-gray-200', 'hover:bg-gray-50', 'shadow-sm');
+         });
+         document.querySelectorAll('.quick-btn-title').forEach(el => el.classList.replace('text-zinc-300', 'text-zinc-800'));
+
+         // Input Area
+         inputContainer.classList.remove('glass', 'ring-white/10');
+         inputContainer.classList.add('bg-white', 'ring-gray-200', 'shadow-xl');
+         msgInput.classList.remove('text-zinc-100', 'placeholder-zinc-500');
+         msgInput.classList.add('text-zinc-900', 'placeholder-zinc-400');
+         document.querySelectorAll('.input-btn').forEach(b => b.classList.replace('text-zinc-400', 'text-zinc-500'));
+      } else {
+        lightBubbleBg.forEach(bubble => bubble.classList.replace('text-zinc-900', 'text-zinc-100'));
+        lightBubbleBg.forEach(bubble => bubble.classList.replace('light-bubble-bg', 'dark-bubble-bg'));
+         // Switch Back to Dark Mode
+         body.classList.add('bg-background', 'text-zinc-300');
+         body.classList.remove('bg-white', 'text-zinc-800');
+         document.body.classList.remove('light-mode-active');
+
+         document.getElementById('ambientGlow').classList.remove('hidden');
+
+         container.classList.add('glass', 'border-zinc-800');
+         container.classList.remove('glass-light', 'border-gray-200');
+
+         sidebar.classList.add('bg-zinc-900/50', 'border-white/5');
+         sidebar.classList.remove('bg-gray-50/80', 'border-gray-200');
+
+         icon.className = 'fas fa-moon w-4 text-center';
+         text.textContent = "Dark Mode";
+         logoText.classList.replace('text-blue-600', 'text-white');
+         headerTitle.classList.replace('text-zinc-800', 'text-zinc-200');
+
+         document.querySelectorAll('.nav-btn').forEach(btn => {
+           btn.classList.replace('text-zinc-600', 'text-zinc-400');
+           btn.classList.replace('hover:text-black', 'hover:text-white');
+           btn.classList.replace('hover:bg-black/5', 'hover:bg-white/5');
+         });
+
+         emptyIcon.classList.add('bg-gradient-to-br', 'from-zinc-800', 'to-zinc-900', 'border-white/10');
+         emptyIcon.classList.remove('bg-blue-50', 'border-blue-100');
+         emptyTitle.classList.replace('text-zinc-900', 'text-white');
+         footer.classList.replace('border-gray-200', 'border-white/5');
+         footer.classList.replace('bg-white/5', 'bg-zinc-900/30');
+
+         document.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.classList.add('bg-white/5', 'border-white/5', 'hover:bg-white/10');
+            btn.classList.remove('bg-white', 'border-gray-200', 'hover:bg-gray-50', 'shadow-sm');
+         });
+         document.querySelectorAll('.quick-btn-title').forEach(el => el.classList.replace('text-zinc-800', 'text-zinc-300'));
+
+         inputContainer.classList.add('glass', 'ring-white/10');
+         inputContainer.classList.remove('bg-white', 'ring-gray-200', 'shadow-xl');
+         msgInput.classList.add('text-zinc-100', 'placeholder-zinc-500');
+         msgInput.classList.remove('text-zinc-900', 'placeholder-zinc-400');
+         document.querySelectorAll('.input-btn').forEach(b => b.classList.replace('text-zinc-500', 'text-zinc-400'));
+         
+      }
+     
+    }
+
+    // --- Standard Logic (Preserved) ---
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+    }
+
+    function handleInputKeydown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function updateSessionTime() {
+      const now = new Date();
+      const diff = Math.floor((now - sessionStartTime) / 1000);
+      const m = Math.floor(diff / 60);
+      const s = diff % 60;
+      document.getElementById('sessionTime').textContent = `${m}m ${s}s`;
+    }
+    setInterval(updateSessionTime, 1000);
+
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      // Adapt toast color to theme
+      const isLight = document.body.getAttribute('data-theme') === 'light';
+      const bg = isLight ? 'bg-white text-zinc-800 border-gray-200' : 'glass text-blue-200 border-blue-500/50';
+      
+      toast.className = `${bg} px-4 py-3 rounded-xl border text-sm shadow-lg flex items-center gap-3 animate-slide-up pointer-events-auto`;
+      toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle text-red-500' : 'fa-check-circle text-blue-500'}"></i> <span>${message}</span>`;
+      
+      const area = document.getElementById('toastArea');
+      area.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function appendMessage(role, content, id) {
+      document.getElementById('emptyState').style.display = 'none';
+      const isLight = document.body.getAttribute('data-theme') === 'light';
+      
+      const div = document.createElement('div');
+      div.className = `flex w-full animate-fade-in ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+      
+      const isUser = role === 'user';
+      
+      // Dynamic bubble classes
+      let bubbleColor;
+      if (isUser) {
+          bubbleColor = 'bg-blue-600 text-white';
+      } else {
+          bubbleColor = isLight 
+            ? 'text-zinc-900' 
+            : 'text-zinc-100 dark-bubble-bg';
+      }
+      
+      const rounded = isUser ? 'rounded-2xl rounded-tr-sm' : 'rounded-2xl rounded-tl-sm';
+      
+      div.innerHTML = `
+        <div class="flex flex-col max-w-[85%] md:max-w-[75%] gap-1">
+          <div class="flex items-center gap-2 ${isUser ? 'justify-end' : 'justify-start'} px-1">
+             <span class="text-[10px] font-medium uppercase tracking-wider ${isLight ? 'text-zinc-400' : 'text-zinc-500'}">${isUser ? 'You' : 'NovaKB'}</span>
+          </div>
+          <div class="${bubbleColor} ${rounded} px-5 py-3.5 overflow-hidden group relative">
+            <div id="${id}" class="prose ${isLight ? '' : 'prose-invert'} max-w-none text-sm md:text-base leading-relaxed">${content}</div>
+          </div>
+        </div>
+      `;
+      
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text || isSending) return;
+      
+      isSending = true;
+      sendBtn.disabled = true;
+      sendBtn.classList.add('opacity-50');
+      input.value = '';
+      autoResize(input);
+      
+      const msgId = Date.now();
+      appendMessage('user', text.replace(/\n/g, '<br>'), `user-${msgId}`);
+      
+      const assistantId = `assistant-${msgId}`;
+      const loadingHTML = `<div class="flex gap-1 py-1 h-6 items-center"><div class="typing-dot text-gray-400"></div><div class="typing-dot text-gray-400"></div><div class="typing-dot text-gray-400"></div></div>`;
+      const messageDiv = appendMessage('assistant', loadingHTML, assistantId);
+      const contentDiv = document.getElementById(assistantId);
+      
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let firstChunk = true;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n\n');
+          for (const line of lines) {
+             const trimmed = line.trim();
+             if (trimmed.startsWith('data: ')) {
+               const jsonStr = trimmed.replace('data: ', '');
+               if (jsonStr === '[DONE]') continue;
+               try {
+                 const data = JSON.parse(jsonStr);
+                 if (data.content) {
+                   if (firstChunk) { contentDiv.innerHTML = ''; firstChunk = false; }
+                   fullText += data.content;
+                   contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+                   chatContainer.scrollTop = chatContainer.scrollHeight;
+                 }
+               } catch (e) { console.error(e); }
+             }
+          }
+        }
+      } catch (err) {
+        contentDiv.innerHTML = `<span class="text-red-400">Error: ${err.message}</span>`;
+      } finally {
+        isSending = false;
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('opacity-50');
+        input.focus();
+      }
+    }
+
+    function sendQuickMessage(text) { input.value = text; sendMessage(); }
+    function attachFile() { document.getElementById('fileAttach').click(); }
+    function handleFileAttach(e) { if(e.target.files.length) showToast(`Attached: ${e.target.files[0].name}`); }
+    function clearChat(){if(confirm('Clear history?')){[...chatContainer.children].forEach(c=>c.id!=='emptyState'&&c.remove());document.getElementById('emptyState').style.display='flex';}}
+    async function exportChat() {
+    const { jsPDF } = window.jspdf;
+
+    showToast("Generating PDF...");
+
+    const chat = document.getElementById("chat");
+
+    // --------------------------------------------------
+    // 🔥 1. FLASH ANIMATION (JS ONLY — NO CSS NEEDED)
+    // --------------------------------------------------
+    const flash = document.createElement("div");
+    flash.style.position = "fixed";
+    flash.style.inset = "0";
+    flash.style.background = "white";
+    flash.style.opacity = "0";
+    flash.style.pointerEvents = "none";
+    flash.style.zIndex = "999999";
+    flash.style.transition = "opacity 180ms ease";
+    document.body.appendChild(flash);
+
+    // trigger flash
+    requestAnimationFrame(() => {
+        flash.style.opacity = "1";
+        setTimeout(() => {
+            flash.style.opacity = "0";
+            setTimeout(() => flash.remove(), 200);
+        }, 120);
+    });
+
+    // --------------------------------------------------
+    // 🔥 2. SOLID MODE (REMOVE GLASS EFFECTS)
+    // --------------------------------------------------
+    chat.classList.add("export-mode");
+    await new Promise(r => setTimeout(r, 150)); // ensures repaint
+
+    // --------------------------------------------------
+    // 🔥 3. CAPTURE SCREENSHOT
+    // --------------------------------------------------
+    const canvas = await html2canvas(chat, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true
+    });
+
+    chat.classList.remove("export-mode");
+
+    // --------------------------------------------------
+    // 🔥 4. CREATE PDF
+    // --------------------------------------------------
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "px", "a4");
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    const imgWidth = pageWidth;
+    const imgHeight = canvas.height * (pageWidth / canvas.width);
+
+    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+
+    // multipage
+    if (imgHeight > pageHeight) {
+        let pos = -pageHeight;
+        while (pos + pageHeight < imgHeight) {
+            pdf.addPage();
+            pdf.addImage(imgData, "PNG", 0, pos, imgWidth, imgHeight);
+            pos -= pageHeight;
+        }
+    }
+
+    pdf.save("NovaKB_Chat_History.pdf");
+
+    showToast("Chat exported successfully!");
+}
+
+    async function clearKB() { try { await fetch('http://192.168.7.90:8000/clear_kb', {method:'POST'}); showToast('Knowledge base cleared'); } catch(e) { showToast('Server error', 'error'); } }
+    async function uploadFiles() {
+       const files = document.getElementById('upload').files;
+       if(!files.length) return;
+       const bar = document.getElementById('uploadProgressBar');
+       const wrapper = document.getElementById('uploadProgressWrapper');
+       wrapper.classList.remove('hidden');
+       bar.style.width = '30%';
+       const fd = new FormData(); for(let f of files) fd.append('files', f);
+       try {
+         const xhr = new XMLHttpRequest(); xhr.open('POST', 'http://192.168.7.90:8000/upload');
+         xhr.upload.onprogress = (e) => { if(e.lengthComputable) bar.style.width = ((e.loaded/e.total)*100) + '%'; };
+         xhr.onload = () => { setTimeout(() => { wrapper.classList.add('hidden'); bar.style.width = '0'; showToast('Files uploaded successfully'); }, 500); };
+         xhr.send(fd);
+       } catch(e) { wrapper.classList.add('hidden'); showToast('Upload error', 'error'); }
+    }
+  </script>
+</body>
+</html>
