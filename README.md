@@ -138,4 +138,4 @@ Libraries: Marked.js, DOMPurify, jsPDF, html2canvas
 Developer: Rajesh C
 
 License: MIT
-<img width="1536" height="2752" alt="Gemini_Generated_Image_yfcqcmyfcqcmyfcq" src="https://github.com/user-attachments/assets/525a1759-7ff1-4450-ac25-56fedf6b3640" />
+
